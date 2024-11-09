@@ -10,16 +10,40 @@ const bcrypt = require("bcryptjs");
 
 const pool = require("./db/pool");
 
+const PgSession = require("connect-pg-simple")(session);
+
 const app = express();
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
-app.use(session({ secret: "cats", resave: false, saveUninitialized: false }));
-app.use(passport.session());
+// app.use(session({ secret: "cats", resave: false, saveUninitialized: false }));
+// app.use(passport.session());
 app.use(express.urlencoded({ extended: false }));
+
+app.use(
+  session({
+    store: new PgSession({
+      pool: pool, // Connection pool
+      tableName: "session", // Optional: defaults to 'session'
+    }),
+    secret: "your-secret-key", // Change this to a secure key
+    resave: false, // Recommended setting
+    saveUninitialized: false, // Recommended setting
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24, // 1 day in milliseconds
+    },
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session()); // This must come after the session middleware
 
 app.get("/", (req, res) => {
   res.render("index", { user: req.user });
+  console.log("is uath: ", req.isAuthenticated());
+  console.log("hello");
+  console.log("session: ", req.session);
+  console.log(req.user);
 });
 app.get("/sign-up", (req, res) => res.render("sign-up-form"));
 
@@ -50,6 +74,7 @@ passport.use(
         [username]
       );
       const user = rows[0];
+      console.log("user is: ", user);
 
       if (!user) {
         return done(null, false, { message: "Incorrect username" });
